@@ -58,11 +58,17 @@ class MainActivity : Activity() {
         val text = TextView(this).apply {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             setTextColor(Color.BLACK)
-            setPadding(24, 24, 24, 24)
+            setPadding(24, 8, 24, 24)
             typeface = Typeface.MONOSPACE
         }
         val scroll = ScrollView(this).apply {
             setBackgroundColor(Color.WHITE)
+            // The activity uses a NoActionBar theme and Android 15 lays this
+            // out edge-to-edge, so the top padding is what keeps the first line
+            // clear of the status bar. On the ScrollView rather than the
+            // TextView: with the default clipToPadding it stays put while the
+            // content scrolls.
+            setPadding(0, 140, 0, 0)
             addView(text)
         }
         setContentView(scroll)
@@ -85,7 +91,15 @@ class MainActivity : Activity() {
                     val shown = line.substring(start)
                     ui.post {
                         text.append(shown + "\n")
-                        scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
+                        // Only follow the tail once the log actually overflows.
+                        // Scrolling unconditionally pushed the opening lines —
+                        // including "sending user event 1 BEFORE run()", the
+                        // whole point — off the top while the screen was still
+                        // half empty.
+                        scroll.post {
+                            val visible = scroll.height - scroll.paddingTop - scroll.paddingBottom
+                            if (text.height > visible) scroll.fullScroll(ScrollView.FOCUS_DOWN)
+                        }
                     }
                 }
             } catch (e: Exception) {
